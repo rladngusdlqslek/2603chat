@@ -238,7 +238,7 @@ class EDA:
             st.subheader("기본 통계량 (describe)")
             st.dataframe(df.describe())
 
-        # 2. 연도별 추이
+        # 2. 연도별추이
         with tabs[1]:
             st.header("Yearly Total Population Trend")
 
