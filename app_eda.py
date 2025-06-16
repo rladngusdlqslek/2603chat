@@ -314,7 +314,7 @@ class EDA:
             pop_change = (pop_end['인구'] - pop_start['인구']).sort_values(ascending=False)
             pop_change_thousands = pop_change / 1000  # 천 단위
 
-            # 인구 변화율 계산 (%)
+            # 인구 변화율 계산
             pop_pct_change = ((pop_end['인구'] - pop_start['인구']) / pop_start['인구'] * 100).sort_values(ascending=False)
 
             # 지역명 영어 번역 (예시)
