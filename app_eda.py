@@ -204,6 +204,7 @@ class EDA:
     def __init__(self):
         st.title("📊 Bike Sharing Demand EDA")
         uploaded = st.file_uploader("데이터셋 업로드 (train.csv)", type="csv")
+        uploaded_population = st.file_uploader("population_trends.csv", type="csv")
         if not uploaded:
             st.info("train.csv 파일을 업로드 해주세요.")
             return
@@ -218,7 +219,8 @@ class EDA:
             "5. 시각화",
             "6. 상관관계 분석",
             "7. 이상치 제거",
-            "8. 로그 변환"
+            "8. 로그 변환",
+            "9. 지역별 인구 분석" #tab 추가
         ])
 
         # 1. 목적 & 분석 절차
@@ -448,6 +450,75 @@ class EDA:
                 > - 오른쪽: 로그 변환 후 분포는 훨씬 균형잡힌 형태로, 중앙값 부근에 데이터가 집중됩니다.  
                 > - 극단치의 영향이 완화되어 이후 분석·모델링 안정성이 높아집니다.
                 """)
+            
+        #9. 지역별 인구 분석
+        with tabs[8]:
+            st.header("🗺️ 지역별 인구 분석")
+
+            if uploaded_population is None:
+                st.warning("population_trends.csv 파일을 업로드해주세요.")
+                return
+
+            df = pd.read_csv(uploaded_population)
+
+            # 전처리: 세종 지역 '-' → 0
+            df.replace('-', 0, inplace=True)
+            df.fillna(0, inplace=True)
+
+            # 숫자형으로 변환
+            numeric_cols = ['인구', '출생아수(명)', '사망자수(명)']
+            for col in numeric_cols:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+            df['연도'] = pd.to_numeric(df['연도'], errors='coerce')
+
+            sub_tabs = st.tabs(["기초 통계", "연도별 추이", "지역별 분석", "변화량 분석", "시각화"])
+
+            # 1. 기초 통계
+            with sub_tabs[0]:
+                st.subheader("📌 기초 통계 및 구조")
+                st.dataframe(df.head())
+                st.write("✔️ 중복 행 수:", df.duplicated().sum())
+                st.write("✔️ 결측치 수:")
+                st.dataframe(df.isnull().sum())
+                st.write("✔️ 요약 통계")
+                st.dataframe(df.describe())
+                st.write("✔️ 데이터프레임 정보")
+                buffer = io.StringIO()
+                df.info(buf=buffer)
+                st.text(buffer.getvalue())
+
+            # 2. 연도별 추이
+            with sub_tabs[1]:
+                st.subheader("📈 연도별 전체 인구 추이")
+                yearly = df.groupby("연도")["인구"].sum().reset_index()
+                st.line_chart(yearly.set_index("연도"))
+
+            # 3. 지역별 분석
+            with sub_tabs[2]:
+                st.subheader("🏙️ 지역별 인구 변화량 순위")
+                area_change = df.groupby("행정구역")["인구"].agg(['min', 'max'])
+                area_change["변화량"] = area_change["max"] - area_change["min"]
+                top_changes = area_change.sort_values(by="변화량", ascending=False)
+                st.dataframe(top_changes.head(10))
+
+            # 4. 변화량 분석
+            with sub_tabs[3]:
+                st.subheader("🔍 증감률 상위 지역 및 연도 도출")
+                df_sorted = df.sort_values(by=["행정구역", "연도"])
+                df_sorted["이전_인구"] = df_sorted.groupby("행정구역")["인구"].shift(1)
+                df_sorted["증감률(%)"] = ((df_sorted["인구"] - df_sorted["이전_인구"]) / df_sorted["이전_인구"]) * 100
+                df_sorted["증감률(%)"] = df_sorted["증감률(%)"].replace([np.inf, -np.inf], np.nan).fillna(0)
+                top_growth = df_sorted.sort_values(by="증감률(%)", ascending=False)
+                st.dataframe(top_growth[["행정구역", "연도", "증감률(%)"]].head(10))
+
+            # 5. 시각화
+            with sub_tabs[4]:
+                st.subheader("📊 누적 영역 그래프")
+                area_pivot = df.pivot_table(index='연도', columns='행정구역', values='인구', aggfunc='sum')
+                area_pivot.fillna(0, inplace=True)
+
+                st.area_chart(area_pivot)
 
 
 # ---------------------
